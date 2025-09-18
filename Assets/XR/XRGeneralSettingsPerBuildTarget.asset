@@ -1,6 +1,5 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
-<<<<<<< HEAD
 --- !u!114 &-3735682888109921532
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15,8 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_LoaderManagerInstance: {fileID: 5646772286977920198}
   m_InitManagerOnStart: 1
-=======
->>>>>>> parent of e498c1e (filters)
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -29,7 +26,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d2dc886499c26824283350fa532d087d, type: 3}
   m_Name: XRGeneralSettingsPerBuildTarget
   m_EditorClassIdentifier: 
-<<<<<<< HEAD
   Keys: 07000000
   Values:
   - {fileID: -3735682888109921532}
@@ -50,7 +46,3 @@ MonoBehaviour:
   m_AutomaticRunning: 0
   m_Loaders:
   - {fileID: 11400000, guid: 8995105a5deb0d340ac70c46e71552f5, type: 2}
-=======
-  Keys: 
-  Values: []
->>>>>>> parent of e498c1e (filters)
