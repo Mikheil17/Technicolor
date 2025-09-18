@@ -5,7 +5,7 @@ namespace EasyDoorSystem
     using System.Collections;
 
     [RequireComponent(typeof(AudioSource))]
-    public class TechnicolorDoor : MonoBehaviour
+    public class EasyDoor : MonoBehaviour
     {
         public enum MovementType { Rotation, Position, Both }
 
