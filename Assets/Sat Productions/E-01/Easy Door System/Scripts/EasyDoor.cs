@@ -118,21 +118,22 @@ namespace EasyDoorSystem
             while (progress < 1)
             {
                 progress += Time.deltaTime * Mathf.Max(movementSpeed, rotationSpeed);
+                progress = Mathf.Clamp01(progress);
 
                 if (movementType != MovementType.Position)
                 {
-                    transform.localRotation = Quaternion.Slerp(startRot, targetQuaternion, progress * rotationSpeed);
+                    transform.localRotation = Quaternion.Slerp(startRot, targetQuaternion, progress);
                 }
 
                 if (movementType != MovementType.Rotation)
                 {
-                    transform.localPosition = Vector3.Lerp(startPos, targetPos, progress * movementSpeed);
+                    transform.localPosition = Vector3.Lerp(startPos, targetPos, progress);
                 }
 
                 yield return null;
             }
 
-            // Ensure final positions are exact
+            // Snap to exact values at the end
             if (movementType != MovementType.Position)
                 transform.localRotation = targetQuaternion;
 

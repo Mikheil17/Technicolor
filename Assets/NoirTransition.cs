@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
+using EasyDoorSystem; // 👈 make sure we can see EasyDoor
 
 public class SimpleColorTransition : MonoBehaviour
 {
@@ -8,7 +9,10 @@ public class SimpleColorTransition : MonoBehaviour
     public PostProcessVolume postProcessVolume;
 
     [Header("Settings")]
-    public float transitionSpeed = 2.0f;
+    public float transitionSpeed = 1.0f;
+
+    [Header("Door Reference")]
+    public EasyDoor door;   // drag your door with EasyDoor script here in Inspector
 
     private ColorGrading colorGrading;
     private Bloom bloom;
@@ -19,47 +23,46 @@ public class SimpleColorTransition : MonoBehaviour
     void Start()
     {
         // Get post-processing effects
-        postProcessVolume.profile.TryGetSettings<ColorGrading>(out colorGrading);
-        postProcessVolume.profile.TryGetSettings<Bloom>(out bloom);
-        postProcessVolume.profile.TryGetSettings<Grain>(out grain);
+        postProcessVolume.profile.TryGetSettings(out colorGrading);
+        postProcessVolume.profile.TryGetSettings(out bloom);
+        postProcessVolume.profile.TryGetSettings(out grain);
 
-        // Set starting values (noir mode)
-        if (colorGrading != null)
-            colorGrading.saturation.value = -50f; // Black and white
-
-        if (bloom != null)
-            bloom.intensity.value = 0.1f; // Low bloom
-
-        // Disable grain completely
-        if (grain != null)
-            grain.enabled.value = false;
     }
 
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player") && !isTransitioning)
         {
+            // 🔑 Tell EasyDoor to open
+            if (door != null)
+            {
+                Debug.Log("Trigger entered: opening EasyDoor.");
+                door.OpenDoor();
+            }
+
+            // Start color transition
             StartCoroutine(TransitionToColor());
         }
     }
 
-    System.Collections.IEnumerator TransitionToColor()
+    IEnumerator TransitionToColor()
     {
         isTransitioning = true;
         float timer = 0f;
+
+        if (grain != null)
+            grain.enabled.value = false;
 
         while (timer < 1f)
         {
             timer += Time.deltaTime * transitionSpeed;
             float t = Mathf.SmoothStep(0f, 1f, timer);
 
-            // Change saturation from -50 (B&W) to +50 (vibrant)
             if (colorGrading != null)
-                colorGrading.saturation.value = Mathf.Lerp(-50f, 50f, t);
+                colorGrading.saturation.value = Mathf.Lerp(-50f, 100f, t);
 
-            // Increase bloom from 0.1 to 5.0 (very strong and bright)
             if (bloom != null)
-                bloom.intensity.value = Mathf.Lerp(0.1f, 5.0f, t);
+                bloom.intensity.value = Mathf.Lerp(75f, 5.0f, t);
 
             yield return null;
         }
