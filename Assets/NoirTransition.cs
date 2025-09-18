@@ -62,7 +62,7 @@ public class SimpleColorTransition : MonoBehaviour
                 colorGrading.saturation.value = Mathf.Lerp(-50f, 100f, t);
 
             if (bloom != null)
-                bloom.intensity.value = Mathf.Lerp(75f, 5.0f, t);
+                bloom.intensity.value = Mathf.Lerp(75f, 3f, t);
 
             yield return null;
         }

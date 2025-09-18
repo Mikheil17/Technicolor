@@ -1,29 +1,35 @@
 using UnityEngine;
+using System.Collections;
 
 [RequireComponent(typeof(SpriteRenderer))]
 public class SpriteFlicker : MonoBehaviour
 {
-    public Color baseColor = Color.cyan;
-    public float minIntensity = 0.5f;
-    public float maxIntensity = 2.0f;
-    public float flickerSpeed = 10.0f;
+    public Color litColor = Color.cyan;
+    public Color unlitColor = Color.black;
+    public float minOnTime = 0.05f;  // how short a flash can be
+    public float maxOnTime = 0.3f;   // how long it can stay lit
+    public float minOffTime = 0.1f;  // how short a dark period can be
+    public float maxOffTime = 1.0f;  // how long it can stay off
 
     private SpriteRenderer sprite;
 
     void Start()
     {
         sprite = GetComponent<SpriteRenderer>();
+        StartCoroutine(FlickerRoutine());
     }
 
-    void Update()
+    IEnumerator FlickerRoutine()
     {
-        // Perlin noise for smooth random flicker
-        float noise = Mathf.PerlinNoise(Time.time * flickerSpeed, 0.0f);
-        float intensity = Mathf.Lerp(minIntensity, maxIntensity, noise);
+        while (true)
+        {
+            // Turn on
+            sprite.color = litColor;
+            yield return new WaitForSeconds(Random.Range(minOnTime, maxOnTime));
 
-        sprite.color = baseColor * intensity;  // Multiplies brightness
-
-        // Debug check
-        // Debug.Log($"Flicker intensity: {intensity:F2}");
+            // Turn off
+            sprite.color = unlitColor;
+            yield return new WaitForSeconds(Random.Range(minOffTime, maxOffTime));
+        }
     }
 }

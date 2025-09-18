@@ -1,11 +1,12 @@
 using System.Collections;
 using UnityEngine;
 
+[RequireComponent(typeof(CharacterController))]
 public class CameraForwardMover : MonoBehaviour
 {
     [Header("Movement Settings")]
-    public Transform moveTransform;           // the object that actually moves (set to XR Rig root if using VR)
-    public float moveSpeed = 1.0f;
+    public Transform moveRoot; // should be XR Rig root (leave blank to use this transform)
+    public float moveSpeed = 1.5f;
     public bool startMovingOnStart = true;
 
     [Header("Distance Limits (Optional)")]
@@ -14,112 +15,146 @@ public class CameraForwardMover : MonoBehaviour
 
     [Header("Turn Settings")]
     public bool enableTurn = true;
-    public float turnAtX = 10f;        // world X coordinate where the turn should trigger
-    public float turnAngle = -90f;       // negative = left, positive = right
-    public float turnSmoothDuration = 0.5f; // seconds to interpolate rotation (0 = instant)
+    public float turnAtX = 10f;             // trigger position (world X)
+    public float turnAngle = -90f;          // left (-) or right (+)
+    public float turnSmoothDuration = 0.5f; // seconds (0 = instant)
 
-    private bool hasTurned = false;      // ensure we only trigger once
+    [Header("Pause / Stop Settings")]
+    public float pauseZ = 16f;    // world Z where we pause
+    public float pauseDuration = 3f;
+    public float stopZ = 20f;     // world Z where we stop for good
+
+    private CharacterController controller;
+    private bool hasTurned = false;
     private bool isMoving = false;
     private Vector3 startPosition;
     private float distanceTraveled = 0f;
-    private float prevX;
+
+    private bool hasPausedAtZ = false;
+    private bool hasStoppedAtZ = false;
+
+    void Awake()
+    {
+        controller = GetComponent<CharacterController>();
+        if (moveRoot == null) moveRoot = transform; // fallback
+    }
 
     void Start()
     {
-        if (moveTransform == null) moveTransform = transform; // fallback to this object
-
-        startPosition = moveTransform.position;
-        prevX = moveTransform.position.x;
-
+        startPosition = moveRoot.position;
         if (startMovingOnStart) StartMoving();
     }
 
-    void Update()
+    void LateUpdate()
     {
-        if (isMoving)
-        {
-            MoveForward();
-        }
+        // take snapshot of position before movement
+        float beforeX = moveRoot.position.x;
+        float beforeZ = moveRoot.position.z;
 
+        if (isMoving) MoveForward();
+
+        // snapshot after movement
+        float afterX = moveRoot.position.x;
+        float afterZ = moveRoot.position.z;
+
+        // check turn using before/after to avoid missing due to overshoot
         if (enableTurn && !hasTurned)
-        {
-            CheckAndDoTurn();
-        }
+            CheckAndDoTurn(beforeX, afterX);
 
-        // update prevX for next frame
-        prevX = moveTransform.position.x;
+        // check pause (once) using before/after
+        if (!hasPausedAtZ)
+            CheckAndPause(beforeZ, afterZ);
+
+        // check full stop at stopZ (immediate)
+        if (!hasStoppedAtZ && afterZ >= stopZ)
+        {
+            hasStoppedAtZ = true;
+            StopMoving();
+        }
     }
 
     void MoveForward()
     {
-        float moveThisFrame = moveSpeed * Time.deltaTime;
-        moveTransform.position += moveTransform.forward * moveThisFrame;
+        Vector3 motion = moveRoot.forward * moveSpeed * Time.deltaTime;
+        controller.Move(motion);
 
         if (useDistanceLimit)
         {
-            distanceTraveled += moveThisFrame;
-            if (distanceTraveled >= maxDistance)
-            {
-                StopMoving();
-            }
+            distanceTraveled += motion.magnitude;
+            if (distanceTraveled >= maxDistance) StopMoving();
         }
     }
 
-    void CheckAndDoTurn()
+    void CheckAndPause(float beforeZ, float afterZ)
     {
-        float curX = moveTransform.position.x;
+        bool crossedForward = (beforeZ < pauseZ && afterZ >= pauseZ);
+        bool crossedBackward = (beforeZ > pauseZ && afterZ <= pauseZ);
 
-        // Crossing test: supports movement in either +X or -X direction
-        bool crossedForward = (prevX < turnAtX && curX >= turnAtX);
-        bool crossedBackward = (prevX > turnAtX && curX <= turnAtX);
+        if ((crossedForward || crossedBackward) && !hasPausedAtZ)
+        {
+            hasPausedAtZ = true;
+            StartCoroutine(PauseAtZ());
+        }
+    }
+
+    IEnumerator PauseAtZ()
+    {
+        StopMoving();
+        yield return new WaitForSecondsRealtime(pauseDuration);
+        // only resume if we haven't already reached the final stop Z
+        if (!hasStoppedAtZ && moveRoot.position.z < stopZ)
+            StartMoving();
+    }
+
+    void CheckAndDoTurn(float beforeX, float afterX)
+    {
+        bool crossedForward = (beforeX < turnAtX && afterX >= turnAtX);
+        bool crossedBackward = (beforeX > turnAtX && afterX <= turnAtX);
 
         if (crossedForward || crossedBackward)
         {
-            Debug.Log($"Turn triggered at X={curX:F3} (prevX={prevX:F3}). Starting turn.");
             hasTurned = true;
+
             if (turnSmoothDuration <= 0f)
-            {
-                // instant
-                moveTransform.Rotate(Vector3.up, turnAngle, Space.World);
-            }
+                moveRoot.Rotate(Vector3.up, turnAngle, Space.World);
             else
-            {
                 StartCoroutine(SmoothTurnCoroutine(turnAngle, turnSmoothDuration));
-            }
         }
     }
 
     IEnumerator SmoothTurnCoroutine(float yAngle, float duration)
     {
-        Quaternion startRot = moveTransform.rotation;
+        Quaternion startRot = moveRoot.rotation;
         Quaternion endRot = startRot * Quaternion.Euler(0, yAngle, 0);
         float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
-            moveTransform.rotation = Quaternion.Slerp(startRot, endRot, t);
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+            moveRoot.rotation = Quaternion.Slerp(startRot, endRot, t);
             yield return null;
         }
 
-        moveTransform.rotation = endRot;
-        Debug.Log("Turn complete. New forward: " + moveTransform.forward);
+        moveRoot.rotation = endRot;
     }
 
-    // Control API
-    public void StartMoving() { isMoving = true; }
-    public void StopMoving() { isMoving = false; }
-    public void ToggleMovement() { isMoving = !isMoving; }
+    // --- Public API ---
+    public void StartMoving() => isMoving = true;
+    public void StopMoving() => isMoving = false;
+    public void ToggleMovement() => isMoving = !isMoving;
 
     public void ResetPosition()
     {
-        moveTransform.position = startPosition;
+        controller.enabled = false;
+        moveRoot.position = startPosition;
+        controller.enabled = true;
+
         distanceTraveled = 0f;
         hasTurned = false;
-        prevX = moveTransform.position.x;
-        Debug.Log("Camera position reset");
+        hasPausedAtZ = false;
+        hasStoppedAtZ = false;
     }
 
-    public void SetSpeed(float newSpeed) { moveSpeed = newSpeed; }
+    public void SetSpeed(float newSpeed) => moveSpeed = newSpeed;
 }
