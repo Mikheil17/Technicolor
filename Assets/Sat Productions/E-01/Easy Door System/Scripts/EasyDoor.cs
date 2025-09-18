@@ -2,9 +2,10 @@ namespace EasyDoorSystem
 {
     using UnityEngine;
     using UnityEngine.Events;
+    using System.Collections;
 
     [RequireComponent(typeof(AudioSource))]
-    public class EasyDoor : MonoBehaviour
+    public class TechnicolorDoor : MonoBehaviour
     {
         public enum MovementType { Rotation, Position, Both }
 
@@ -19,9 +20,13 @@ namespace EasyDoorSystem
 
         [Header("Transform Targets")]
         [SerializeField] private Vector3 closedRotation;
-        [SerializeField] private Vector3 openedRotation;
+        [SerializeField] private Vector3 openedRotation = new Vector3(0, 75, 0); // less-wide opening.
         [SerializeField] private Vector3 closedPosition;
         [SerializeField] private Vector3 openedPosition;
+        
+        [Header("Visual Effects")]
+        [SerializeField] private Material closedMaterial;
+        [SerializeField] private Material openedMaterial;
 
         [Header("Audio")]
         [SerializeField] private AudioClip doorOpenSound;
@@ -38,13 +43,21 @@ namespace EasyDoorSystem
         private AudioSource audioSource;
         private Transform playerTransform;
         private Coroutine movementCoroutine;
+        private Renderer doorRenderer;
 
         public GameObject Player;
+
         private void Awake()
         {
             audioSource = GetComponent<AudioSource>();
             audioSource.spatialBlend = 1f; // 3D sound by default
             audioSource.playOnAwake = false;
+
+            doorRenderer = GetComponent<Renderer>();
+            if (doorRenderer != null && closedMaterial != null)
+            {
+                doorRenderer.material = closedMaterial;
+            }
 
             if (automaticPlayerDetection)
                 FindPlayer();
@@ -101,8 +114,8 @@ namespace EasyDoorSystem
                 StopCoroutine(movementCoroutine);
 
             movementCoroutine = StartCoroutine(AnimateDoor(
-                movementType != MovementType.Rotation ? targetPosition : transform.localPosition,
-                movementType != MovementType.Position ? targetRotation : transform.localEulerAngles,
+                targetPosition,
+                targetRotation,
                 opening
             ));
         }
@@ -113,6 +126,10 @@ namespace EasyDoorSystem
             Quaternion startRot = transform.localRotation;
             Vector3 startPos = transform.localPosition;
             Quaternion targetQuaternion = Quaternion.Euler(targetRot);
+            
+            // Set up materials for a smooth transition.
+            Material startMaterial = opening ? closedMaterial : openedMaterial;
+            Material targetMaterial = opening ? openedMaterial : closedMaterial;
 
             float progress = 0;
             while (progress < 1)
@@ -121,12 +138,18 @@ namespace EasyDoorSystem
 
                 if (movementType != MovementType.Position)
                 {
-                    transform.localRotation = Quaternion.Slerp(startRot, targetQuaternion, progress * rotationSpeed);
+                    transform.localRotation = Quaternion.Slerp(startRot, targetQuaternion, progress);
                 }
 
                 if (movementType != MovementType.Rotation)
                 {
-                    transform.localPosition = Vector3.Lerp(startPos, targetPos, progress * movementSpeed);
+                    transform.localPosition = Vector3.Lerp(startPos, targetPos, progress);
+                }
+                
+                // Smoothly blend between the two materials.
+                if (doorRenderer != null && startMaterial != null && targetMaterial != null)
+                {
+                    doorRenderer.material.Lerp(startMaterial, targetMaterial, progress);
                 }
 
                 yield return null;
@@ -138,6 +161,12 @@ namespace EasyDoorSystem
 
             if (movementType != MovementType.Rotation)
                 transform.localPosition = targetPos;
+            
+            // Set the final material after the animation is complete.
+            if (doorRenderer != null && targetMaterial != null)
+            {
+                doorRenderer.material = targetMaterial;
+            }
 
             IsOpen = opening;
             IsMoving = false;
